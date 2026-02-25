@@ -17,16 +17,34 @@ services:
       retries: 5
     restart: unless-stopped
 
-  bootstrap_vector_ext:
-    image: pgvector/pgvector:pg17
+  flyway:
+    image: flyway/flyway:latest
+    container_name: flyway_migrations
     depends_on:
       postgres:
         condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/rag
+      FLYWAY_USER: postgres
+      FLYWAY_PASSWORD: postgres
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+      FLYWAY_VALIDATE_ON_MIGRATE: true
+      FLYWAY_OUT_OF_ORDER: false
+    volumes:
+      - ./migrations/sql:/flyway/sql
+    command: migrate
+    restart: "no"
+
+  bootstrap_vector_ext:
+    image: pgvector/pgvector:pg17
+    depends_on:
+      flyway:
+        condition: service_completed_successfully
     entrypoint: ["/bin/sh", "-c"]
     command: >
       PGPASSWORD=postgres
       psql "postgresql://postgres@postgres:5432/rag" -v ON_ERROR_STOP=1
-      -c "CREATE EXTENSION IF NOT EXISTS vector;"
+      -c "SELECT 'Vector extension is available: ' || extname FROM pg_extension WHERE extname = 'vector';"
     restart: "no"
 
 volumes:
