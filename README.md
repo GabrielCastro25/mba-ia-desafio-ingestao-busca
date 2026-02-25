@@ -1,49 +1,52 @@
-# PDF Ingestion Pipeline
+# PDF Ingestion & Search Pipeline
 
-Pipeline completo para ingestão de PDFs com armazenamento vetorial no PostgreSQL + pgVector.
+Pipeline completo para ingestão de PDFs com armazenamento vetorial no PostgreSQL + pgVector e interface de chat.
 
-## 🚀 Funcionalidades
+## Funcionalidades
 
-- ✅ **Extração de texto** de arquivos PDF
-- ✅ **Chunking inteligente** (1000 caracteres com overlap de 150)
-- ✅ **Geração de embeddings** (OpenAI API ou mock)
-- ✅ **Armazenamento vetorial** com pgVector
-- ✅ **Gestão de migrações** com Flyway
-- ✅ **Busca por similaridade** pronta para usar
+- Extração de texto de arquivos PDF
+- Chunking inteligente (1000 caracteres com overlap de 150)
+- Geração de embeddings via OpenAI
+- Armazenamento vetorial com pgVector (via langchain-postgres)
+- Busca por similaridade semântica
+- Interface de chat RAG (Retrieval-Augmented Generation)
 
-## 📋 Pré-requisitos
+## Pré-requisitos
 
 - Docker e Docker Compose
 - Python 3.8+
-- OpenAI API Key (opcional)
+- OpenAI API Key
 
-## 🛠️ Setup Rápido
+## Setup
 
 ### 1. Subir a infraestrutura
 
 ```bash
-# Inicia PostgreSQL + pgVector + Flyway
 docker-compose up -d
-
-# Executa as migrações do banco
-docker-compose up flyway
 ```
 
-### 2. Configurar ambiente
+Isso inicia o PostgreSQL com a extensão pgVector. A criação das tabelas é gerenciada automaticamente pelo `langchain-postgres` na primeira execução.
+
+### 2. Configurar o ambiente
 
 ```bash
-# Copiar arquivo de exemplo
-cp .env.example .env
+cp ".env copy.example" .env
+```
 
-# Editar .env com suas configurações
-# OPENAI_API_KEY=sua_chave_aqui
-# PDF_PATH=document.pdf
+Edite o `.env` com suas configurações:
+
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5432/rag
+PG_VECTOR_COLLECTION_NAME=documents
+PDF_PATH=document.pdf
 ```
 
 ### 3. Instalar dependências Python
 
 ```bash
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 ### 4. Executar a ingestão
@@ -52,164 +55,71 @@ pip3 install -r requirements.txt
 python3 src/ingest.py
 ```
 
-## 📁 Estrutura do Projeto
+O pipeline carrega o PDF, divide em chunks, gera embeddings e salva no banco.
+
+### 5. Iniciar o chat
+
+```bash
+cd src && python3 chat.py
+```
+
+Digite suas perguntas sobre o conteúdo do PDF. Para encerrar, digite `sair`.
+
+## Estrutura do Projeto
 
 ```
 ├── src/
-│   └── ingest.py              # Pipeline principal de ingestão
+│   ├── ingest.py   # Pipeline de ingestão de PDF
+│   ├── search.py   # Lógica de busca e geração de resposta
+│   └── chat.py     # Interface de chat interativa
 ├── scripts/
-│   └── db_manager.py          # Utilitário para gestão do banco
-├── migrations/
-│   └── sql/                   # Migrações Flyway
-│       ├── V001__Create_vector_extension.sql
-│       ├── V002__Create_document_chunks_table.sql
-│       └── V003__Create_search_functions.sql
-├── docker-compose.yml         # Infraestrutura Docker
-├── requirements.txt           # Dependências Python
-└── document.pdf              # PDF de exemplo
+│   └── db_manager.py       # Utilitário para gestão do banco
+├── docker-compose.yml      # PostgreSQL + pgVector
+├── requirements.txt        # Dependências Python
+├── .env copy.example       # Exemplo de variáveis de ambiente
+└── document.pdf            # PDF de exemplo
 ```
 
-## 🗄️ Gestão do Banco de Dados
+## Variáveis de Ambiente
 
-### Usando o script utilitário:
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `OPENAI_API_KEY` | Sim | Chave da API OpenAI |
+| `DATABASE_URL` | Sim | URL de conexão PostgreSQL |
+| `PG_VECTOR_COLLECTION_NAME` | Sim | Nome da coleção no pgVector |
+| `PDF_PATH` | Sim | Caminho para o arquivo PDF |
+| `OPENAI_EMBEDDING_MODEL` | Não | Padrão: `text-embedding-3-small` |
+| `GOOGLE_API_KEY` | Não | Chave da API Google (uso futuro) |
+| `GOOGLE_EMBEDDING_MODEL` | Não | Padrão: `models/embedding-001` |
+
+## Gestao do Banco de Dados
 
 ```bash
-# Verificar status das migrações
-python3 scripts/db_manager.py status
-
-# Executar migrações pendentes
-python3 scripts/db_manager.py migrate
-
-# Verificar informações do schema
-python3 scripts/db_manager.py info
-
-# Limpar banco (apenas desenvolvimento)
-python3 scripts/db_manager.py clean
-
 # Verificar conexão
 python3 scripts/db_manager.py check
+
+# Mostrar tabelas, extensões e funções do schema
+python3 scripts/db_manager.py info
 ```
 
-### Usando Docker diretamente:
-
-```bash
-# Executar migrações
-docker-compose up flyway
-
-# Verificar logs
-docker-compose logs flyway
-```
-
-## 🔍 Busca por Similaridade
-
-O pipeline cria funções úteis para busca:
-
-```sql
--- Buscar chunks similares a um vetor
-SELECT * FROM search_similar_chunks(
-    '[0.1, 0.2, 0.3, ...]'::vector(1536),
-    0.7,  -- threshold de similaridade
-    10    -- máximo de resultados
-);
-
--- Buscar chunks por fonte
-SELECT * FROM get_chunks_by_source('document.pdf');
-
--- Estatísticas dos chunks
-SELECT * FROM get_chunk_statistics();
-```
-
-## 📊 Exemplo de Uso
-
-### 1. Ingestão Básica
-
-```python
-from src.ingest import PDFIngestionPipeline
-
-pipeline = PDFIngestionPipeline()
-success = pipeline.run()
-```
-
-### 2. Com Embeddings Reais
-
-Configure sua OpenAI API Key no `.env`:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-O pipeline automaticamente usará embeddings reais em vez de mocks.
-
-### 3. Verificação dos Dados
-
-```python
-import psycopg2
-
-conn = psycopg2.connect("postgresql://postgres:postgres@127.0.0.1:5432/rag")
-cur = conn.cursor()
-
-# Contar chunks
-cur.execute("SELECT COUNT(*) FROM document_chunks")
-count = cur.fetchone()[0]
-print(f"Total chunks: {count}")
-
-# Buscar amostra
-cur.execute("SELECT content, metadata FROM document_chunks LIMIT 3")
-for row in cur.fetchall():
-    print(f"Content: {row[0][:100]}...")
-    print(f"Metadata: {row[1]}")
-```
-
-## 🔄 Fluxo de Trabalho
-
-1. **Desenvolvimento**: Use mock embeddings para testes rápidos
-2. **Produção**: Configure OPENAI_API_KEY para embeddings reais
-3. **Migrações**: Use Flyway para gerenciar alterações no schema
-4. **Monitoramento**: Use as funções de busca e estatísticas
-
-## 🐛 Troubleshooting
-
-### Problemas Comuns
+## Troubleshooting
 
 **Banco não conecta:**
 ```bash
-# Verificar se PostgreSQL está rodando
 docker ps | grep postgres
-
-# Verificar logs
 docker-compose logs postgres
 ```
 
-**Migrações falham:**
+**Cota da API OpenAI esgotada:**
+
+O script trata erros de `insufficient_quota` e exibe uma mensagem clara. Adicione créditos em https://platform.openai.com/account/billing e tente novamente.
+
+**Rate limit:**
+
+O pipeline faz até 3 tentativas com espera de 60 segundos entre elas antes de interromper.
+
+**`chat.py` não encontra o módulo `search`:**
 ```bash
-# Limpar e reexecutar
-python3 scripts/db_manager.py clean
-python3 scripts/db_manager.py migrate
+# Execute a partir da pasta src/
+cd src && python3 chat.py
 ```
-
-**Python 2.7 detectado:**
-```bash
-# Use python3 explicitamente
-python3 src/ingest.py
-```
-
-### Logs Detalhados
-
-O pipeline inclui logging detalhado. Para mais informações:
-
-```bash
-# Ver logs em tempo real
-python3 src/ingest.py 2>&1 | tee ingestion.log
-```
-
-## 🚀 Próximos Passos
-
-- [ ] Implementar interface web para busca
-- [ ] Adicionar suporte a múltiplos formatos de documento
-- [ ] Implementar cache de embeddings
-- [ ] Adicionar métricas e monitoramento
-- [ ] Implementar reprocessamento incremental
-
-## 📝 Licença
-
-MIT License - sinta-se livre para usar e modificar!
