@@ -43,24 +43,45 @@ PG_VECTOR_COLLECTION_NAME=documents
 PDF_PATH=document.pdf
 ```
 
-### 3. Instalar dependências Python
+### 3. Instalar Python 3.11
+
+**macOS (Homebrew):**
+```bash
+brew install python@3.11
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update && sudo apt install python3.11 python3.11-venv
+```
+
+**Windows:** Baixe o instalador em https://www.python.org/downloads/release/python-3110/
+
+### 4. Criar e ativar o ambiente virtual
+
+```bash
+python3.11 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+```
+
+### 5. Instalar dependências Python
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Executar a ingestão
+### 6. Executar a ingestão
 
 ```bash
-python3 src/ingest.py
+python src/ingest.py
 ```
 
 O pipeline carrega o PDF, divide em chunks, gera embeddings e salva no banco.
 
-### 5. Iniciar o chat
+### 7. Iniciar o chat
 
 ```bash
-cd src && python3 chat.py
+python src/chat.py
 ```
 
 Digite suas perguntas sobre o conteúdo do PDF. Para encerrar, digite `sair`.
@@ -72,8 +93,6 @@ Digite suas perguntas sobre o conteúdo do PDF. Para encerrar, digite `sair`.
 │   ├── ingest.py   # Pipeline de ingestão de PDF
 │   ├── search.py   # Lógica de busca e geração de resposta
 │   └── chat.py     # Interface de chat interativa
-├── scripts/
-│   └── db_manager.py       # Utilitário para gestão do banco
 ├── docker-compose.yml      # PostgreSQL + pgVector
 ├── requirements.txt        # Dependências Python
 ├── .env copy.example       # Exemplo de variáveis de ambiente
@@ -92,15 +111,6 @@ Digite suas perguntas sobre o conteúdo do PDF. Para encerrar, digite `sair`.
 | `GOOGLE_API_KEY` | Não | Chave da API Google (uso futuro) |
 | `GOOGLE_EMBEDDING_MODEL` | Não | Padrão: `models/embedding-001` |
 
-## Gestao do Banco de Dados
-
-```bash
-# Verificar conexão
-python3 scripts/db_manager.py check
-
-# Mostrar tabelas, extensões e funções do schema
-python3 scripts/db_manager.py info
-```
 
 ## Troubleshooting
 
@@ -120,6 +130,5 @@ O pipeline faz até 3 tentativas com espera de 60 segundos entre elas antes de i
 
 **`chat.py` não encontra o módulo `search`:**
 ```bash
-# Execute a partir da pasta src/
-cd src && python3 chat.py
+python src/chat.py
 ```
